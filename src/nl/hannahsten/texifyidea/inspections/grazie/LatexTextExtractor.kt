@@ -34,56 +34,56 @@ class LatexTextExtractor : TextExtractor() {
 
         return textContent.excludeRanges(stealthyRanges)
     }
-
-    /**
-     * Get ranges to ignore.
-     * Note: IntRange has an inclusive end.
-     */
-    private fun getStealthyRanges(root: PsiElement): List<IntRange> {
-        // Getting text takes time, so we only do it once
-        val rootText = root.text
-
-        // Only keep normaltext, assuming other things (like inline math) need to be ignored.
-        val ranges = root.childrenOfType(LatexNormalText::class)
-            .asSequence()
-            .filter { it.isNotInMathEnvironment() && it.isNotInSquareBrackets() }
-            // Ranges that we need to keep
-            // Note that textRangeInParent will not be correct because that's the text range in the direct parent, not in the root
-            .flatMap {
-                // I have no idea what happens here. I don't think Grazie uses the same indices and text as root.text, because it doesn't behave consistently when I move around indices, so it may appear we are ignoring too much or too little while in practice the inspections may work.
-                var start = it.textRange.startOffset - root.startOffset
-                if (start > 0 && rootText[start - 1] != '\n' && rootText[start - 1] != ' ') {
-                    // Support sentence ends with inline math
-                    start -= 1
-                }
-                listOf(
-                    start,
-                    // -1 Because endOffset is exclusive but we are working with inclusive end here
-                    it.textRange.endOffset - 1 - root.startOffset
-                )
-            }
-            .sorted()
-            .toMutableList()
-            // Make sure that if the root does not start/end with normal text, that those parts are excluded
-            .also { it.add(0, 0) }
-            .also { it.add(root.endOffset()) }
-            // To get the ranges that we need to ignore
-            // -1 because IntRange has inclusive end, but we want to exclude all letters _excluding_ the letter where the normal text started
-            .chunked(2) { IntRange(it[0], it[1] - 1) }
-            .filter { it.first < it.last && it.first >= 0 && it.last < rootText.length }
-            .toMutableSet()
-
-        // Currently, GrammarChecker does not handle overlapped ranges, so we do that ourselves
-        for (range in StrategyUtils.indentIndexes(root.text, setOf(' '))) {
-            val overlapped = ranges.filter { range.overlaps(it) }
-            ranges.removeAll(overlapped.toSet())
-            ranges.add(range.merge(overlapped))
-        }
-        return ranges.sortedBy { it.first }
-    }
-
-    private fun PsiElement.isNotInMathEnvironment() = parents().none { it is LatexMathEnvironment }
-
-    private fun PsiElement.isNotInSquareBrackets() = parents().find { it is LatexGroup || it is LatexOptionalParam }
-        ?.let { it is LatexGroup } ?: true
 }
+
+/**
+ * Get ranges to ignore.
+ * Note: IntRange has an inclusive end.
+ */
+private fun getStealthyRanges(root: PsiElement): List<IntRange> {
+    // Getting text takes time, so we only do it once
+    val rootText = root.text
+
+    // Only keep normaltext, assuming other things (like inline math) need to be ignored.
+    val ranges = root.childrenOfType(LatexNormalText::class)
+        .asSequence()
+        .filter { it.isNotInMathEnvironment() && it.isNotInSquareBrackets() }
+        // Ranges that we need to keep
+        // Note that textRangeInParent will not be correct because that's the text range in the direct parent, not in the root
+        .flatMap {
+            // I have no idea what happens here. I don't think Grazie uses the same indices and text as root.text, because it doesn't behave consistently when I move around indices, so it may appear we are ignoring too much or too little while in practice the inspections may work.
+            var start = it.textRange.startOffset - root.startOffset
+            if (start > 0 && rootText[start - 1] != '\n' && rootText[start - 1] != ' ') {
+                // Support sentence ends with inline math
+                start -= 1
+            }
+            listOf(
+                start,
+                // -1 Because endOffset is exclusive but we are working with inclusive end here
+                it.textRange.endOffset - 1 - root.startOffset
+            )
+        }
+        .sorted()
+        .toMutableList()
+        // Make sure that if the root does not start/end with normal text, that those parts are excluded
+        .also { it.add(0, 0) }
+        .also { it.add(root.endOffset()) }
+        // To get the ranges that we need to ignore
+        // -1 because IntRange has inclusive end, but we want to exclude all letters _excluding_ the letter where the normal text started
+        .chunked(2) { IntRange(it[0], it[1] - 1) }
+        .filter { it.first < it.last && it.first >= 0 && it.last < rootText.length }
+        .toMutableSet()
+
+    // Currently, GrammarChecker does not handle overlapped ranges, so we do that ourselves
+    for (range in StrategyUtils.indentIndexes(root.text, setOf(' '))) {
+        val overlapped = ranges.filter { range.overlaps(it) }
+        ranges.removeAll(overlapped.toSet())
+        ranges.add(range.merge(overlapped))
+    }
+    return ranges.sortedBy { it.first }
+}
+
+private fun PsiElement.isNotInMathEnvironment() = parents().none { it is LatexMathEnvironment }
+
+private fun PsiElement.isNotInSquareBrackets() = parents().find { it is LatexGroup || it is LatexOptionalParam }
+    ?.let { it is LatexGroup } ?: true
