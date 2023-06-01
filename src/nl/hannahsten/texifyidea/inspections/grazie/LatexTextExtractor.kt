@@ -26,7 +26,7 @@ class LatexTextExtractor : TextExtractor() {
         val textContent = TextContent.builder().build(root, domain) ?: return null
         val stealthyRanges = getStealthyRanges(root)
             // Convert IntRange (inclusive end) to TextRange (exclusive end)
-            .map { TextContent.Exclusion.exclude(it.toTextRange()) }
+            .map { TextContent.Exclusion.markUnknown(it.toTextRange()) }
             .filter { it.start >= 0 && it.end <= textContent.length }
 
         return textContent.excludeRanges(stealthyRanges)
@@ -69,9 +69,6 @@ class LatexTextExtractor : TextExtractor() {
             .chunked(2) { IntRange(it[0], it[1] - 1) }
             .filter { it.first < it.last && it.first >= 0 && it.last < rootText.length }
             .toMutableSet()
-
-        // There is still a bit of a problem, because when stitching together the NormalTexts, whitespace is lost
-        // so this leads Grazie to think that there is no space there, while in fact there may or may not be
 
         // Currently, GrammarChecker does not handle overlapped ranges, so we do that ourselves
         for (range in StrategyUtils.indentIndexes(root.text, setOf(' '))) {
