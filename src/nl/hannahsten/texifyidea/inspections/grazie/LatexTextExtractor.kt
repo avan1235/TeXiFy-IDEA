@@ -25,9 +25,12 @@ class LatexTextExtractor : TextExtractor() {
 
         val textContent = TextContent.builder().build(root, domain) ?: return null
         val stealthyRanges = getStealthyRanges(root)
+            .asSequence()
             // Convert IntRange (inclusive end) to TextRange (exclusive end)
-            .map { TextContent.Exclusion.markUnknown(it.toTextRange()) }
-            .filter { it.start >= 0 && it.end <= textContent.length }
+            .filter { it.first >= 0 && it.last + 1 <= textContent.length }
+            .map { it.toTextRange() }
+            .map { TextContent.Exclusion.markUnknown(it) }
+            .toList()
 
         return textContent.excludeRanges(stealthyRanges)
     }
